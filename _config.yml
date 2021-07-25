@@ -1,4 +1,7 @@
-theme: jekyll-theme-cayman
+theme: minima
+
+title: explarry
+description: live and learn
 
 exclude:
   - .sass-cache/
