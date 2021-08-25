@@ -290,3 +290,98 @@ categories: operation_system
   释放锁前，从队列取出一个线程，把它标记成 rannable
 
   中断处理程序每次收到一个中断时，从 rannable 的线程中选择一个运行
+
+
+
+# 8 并发数据结构 malloc/free 算法
+
+## 编程建议
+
+* 白板手书，减少涂改，锻炼思路
+* 不言自明
+
+## list head
+
+嵌入到其它对象当中的双向循环列表
+
+```c
+struct list_head {
+  struct list_head *prev, *next;
+};
+```
+
+* 应对一个对象在多个链表里的情况
+
+  ```c
+  struct task {
+    struct list_head wait_queue; // for mutex
+    struct list_head task_list;  // for procfs
+  }
+  ```
+
+* 内存友好：
+
+  * 链表跟着对象走，内存分配时一次性分配完成，减少内存碎片
+  * 局部性友好：访问对象里的链表，大概率也会访问对象中的其他数据（直接通过地址偏移量访问），利用了 cpu 缓存的特性。
+
+## raii
+
+resource acquisition is initialization
+
+一种常见的编码规范
+
+例如定义一个锁，在类的构造函数上上锁，析构函数上解锁。通过这种方式来避免遗漏解锁操作。
+
+
+
+## sbrk 和 mmap
+
+操作系统提供的内存分配调用
+
+* brk 即 break，表示对内存空间设限，把内存类比数组，brk 就是允许使用的最大 index
+
+
+
+## malloc 和 free
+
+* 设计 malloc 和 free 的本质是维护一个被分配的区间集合
+
+* premature optimization is the root of all evil
+
+  不要脱离 workload 来做优化
+
+* 多处理器上 malloc 和 free 的 workload
+
+  * 非常频繁的小对象（几到几十 bytes）分配和释放
+  * 比较频繁的中等对象（几百 bytes 到几 KiB）分配和释放
+  * 偶尔的大内存分配（MiB 级别）
+
+
+
+## fast path & slow path
+
+一种设计原则
+
+fast path 快糙猛，但是小概率失败
+
+slow path 缓慢精细，保证成功
+
+
+
+* 大内存分配考虑在线程本地分配，使用链表、interval/radix tree或者 bitmap
+* 小内存到中等大小内存考虑使用 slab 分配器
+
+
+
+## slab 分配器
+
+* 对常见的分配大小分设置规格，每个规格固定大小
+
+  节约了每段内存的头信息
+
+* 设置 per -thread 分配缓存
+
+  只考虑 malloc 和 free 之间的并发
+
+  可以 lock-free 实现，也可以锁 slab 实现
+
